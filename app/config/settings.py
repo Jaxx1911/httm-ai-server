@@ -12,7 +12,7 @@ class Settings:
     # Database
     DATABASE_URL: str = os.getenv(
         "DATABASE_URL", 
-        "postgresql://username:password@localhost:5432/httm_db"
+        "postgresql://postgres:5d8475265baf4f13b71aff80fd2e4485@localhost:5432/httm_db"
     )
     
     # Server
