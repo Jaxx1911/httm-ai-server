@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Quản lý Sample</title>
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; margin: 0; background-color: #f4f6f8; }
+        #root { padding: 20px; max-width: 1200px; margin: auto; }
+        h1, h2 { color: #333; }
+        table { width: 100%; border-collapse: collapse; margin-top: 20px; background: white; }
+        th, td { border: 1px solid #ddd; padding: 12px; text-align: left; }
+        th { background-color: #f2f2f2; }
+        button { cursor: pointer; padding: 8px 12px; border: none; border-radius: 4px; margin-right: 5px; }
+        .btn-primary { background-color: #007bff; color: white; }
+        .btn-danger { background-color: #dc3545; color: white; }
+        .btn-secondary { background-color: #6c757d; color: white; }
+        .form-container { background: white; padding: 20px; border-radius: 5px; margin-bottom: 20px; }
+        .form-group { margin-bottom: 15px; }
+        .form-group label { display: block; margin-bottom: 5px; }
+        .form-group input, .form-group textarea, .form-group select { width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; }
+        .header { display: flex; justify-content: space-between; align-items: center; }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+    <script type="text/babel">
+        const { useState, useEffect, useCallback } = React;
+
+        // --- API Helper ---
+        const api = {
+            login: (username, password) => fetch('/auth/login', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({username, password}) }),
+            logout: () => fetch('/auth/logout', { method: 'POST' }),
+            me: () => fetch('/auth/me'),
+            getSamples: (datasetId) => fetch(datasetId ? `/api/samples?dataset_id=${datasetId}` : '/api/samples'),
+            getDatasets: () => fetch('/api/samples/datasets/all'),
+            createSample: (data) => fetch('/api/samples', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(data) }),
+            updateSample: (id, data) => fetch(`/api/samples/${id}`, { method: 'PUT', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(data) }),
+            deleteSample: (id) => fetch(`/api/samples/${id}`, { method: 'DELETE' }),
+        };
+
+        // --- Components ---
+        function LoginPage({ onLoginSuccess }) {
+            const [username, setUsername] = useState('admin');
+            const [password, setPassword] = useState('admin');
+            const [error, setError] = useState('');
+
+            const handleSubmit = async (e) => {
+                e.preventDefault();
+                try {
+                    const res = await api.login(username, password);
+                    if (!res.ok) throw new Error((await res.json()).detail || 'Đăng nhập thất bại');
+                    onLoginSuccess(await res.json());
+                } catch (err) {
+                    setError(err.message);
+                }
+            };
+
+            return (
+                <div style={{maxWidth: 400, margin: '50px auto'}}>
+                    <div className="form-container">
+                        <h2>Đăng nhập</h2>
+                        <form onSubmit={handleSubmit}>
+                            <div className="form-group">
+                                <label>Username</label>
+                                <input value={username} onChange={e => setUsername(e.target.value)} />
+                            </div>
+                            <div className="form-group">
+                                <label>Password</label>
+                                <input type="password" value={password} onChange={e => setPassword(e.target.value)} />
+                            </div>
+                            {error && <p style={{color: 'red'}}>{error}</p>}
+                            <button type="submit" className="btn-primary">Đăng nhập</button>
+                        </form>
+                    </div>
+                </div>
+            );
+        }
+
+        function SampleManager({ user, onLogout }) {
+            const [samples, setSamples] = useState([]);
+            const [datasets, setDatasets] = useState([]);
+            const [filter, setFilter] = useState('');
+            const [editingSample, setEditingSample] = useState(null);
+            const [isCreating, setIsCreating] = useState(false);
+
+            const fetchData = useCallback(async () => {
+                try {
+                    const [samplesRes, datasetsRes] = await Promise.all([api.getSamples(filter), api.getDatasets()]);
+                    if (samplesRes.status === 401 || datasetsRes.status === 401) {
+                        onLogout();
+                        return;
+                    }
+                    setSamples(await samplesRes.json());
+                    setDatasets(await datasetsRes.json());
+                } catch (error) {
+                    console.error("Lỗi tải dữ liệu:", error);
+                }
+            }, [filter, onLogout]);
+
+            useEffect(() => { fetchData(); }, [fetchData]);
+
+            const handleDelete = async (id) => {
+                if (confirm('Bạn có chắc muốn xóa sample này?')) {
+                    await api.deleteSample(id);
+                    fetchData();
+                }
+            };
+
+            const handleSave = async (sampleData) => {
+                if (editingSample) {
+                    await api.updateSample(editingSample.sample_id, sampleData);
+                } else {
+                    await api.createSample(sampleData);
+                }
+                setEditingSample(null);
+                setIsCreating(false);
+                fetchData();
+            };
+
+            return (
+                <div>
+                    <div className="header">
+                        <h1>Quản lý Sample Dataset</h1>
+                        <div>
+                            <span>Xin chào, <strong>{user.username}</strong></span>
+                            <button onClick={onLogout} className="btn-secondary" style={{marginLeft: 15}}>Đăng xuất</button>
+                        </div>
+                    </div>
+
+                    <div className="form-group">
+                        <label>Lọc theo Dataset</label>
+                        <select value={filter} onChange={e => setFilter(e.target.value)}>
+                            <option value="">Tất cả</option>
+                            {datasets.map(d => <option key={d.dataset_ID} value={d.dataset_ID}>{d.name}</option>)}
+                        </select>
+                    </div>
+
+                    <button onClick={() => { setIsCreating(true); setEditingSample(null); }} className="btn-primary">Thêm Sample mới</button>
+
+                    {(isCreating || editingSample) && (
+                        <SampleForm
+                            datasets={datasets}
+                            sample={editingSample}
+                            onSave={handleSave}
+                            onCancel={() => { setIsCreating(false); setEditingSample(null); }}
+                        />
+                    )}
+
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Tiêu đề</th>
+                                <th>Danh mục</th>
+                                <th>Dataset ID</th>
+                                <th>Thao tác</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {samples.map(s => (
+                                <tr key={s.sample_id}>
+                                    <td>{s.title}</td>
+                                    <td>{s.category}</td>
+                                    <td>{s.Datasetdataset_ID}</td>
+                                    <td>
+                                        <button onClick={() => setEditingSample(s)} className="btn-secondary">Sửa</button>
+                                        <button onClick={() => handleDelete(s.sample_id)} className="btn-danger">Xóa</button>
+                                    </td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                </div>
+            );
+        }
+
+        function SampleForm({ datasets, sample, onSave, onCancel }) {
+            const [formData, setFormData] = useState(sample || { title: '', input_text: '', target_summary: '', category: '', source: '', Datasetdataset_ID: '' });
+
+            const handleChange = (e) => {
+                const { name, value } = e.target;
+                setFormData(prev => ({ ...prev, [name]: value }));
+            };
+
+            const handleSubmit = (e) => {
+                e.preventDefault();
+                onSave(formData);
+            };
+
+            return (
+                <div className="form-container">
+                    <h2>{sample ? 'Chỉnh sửa Sample' : 'Tạo Sample mới'}</h2>
+                    <form onSubmit={handleSubmit}>
+                        <div className="form-group">
+                            <label>Tiêu đề</label>
+                            <input name="title" value={formData.title} onChange={handleChange} required />
+                        </div>
+                        <div className="form-group">
+                            <label>Nội dung</label>
+                            <textarea name="input_text" value={formData.input_text} onChange={handleChange} rows="5" required></textarea>
+                        </div>
+                        <div className="form-group">
+                            <label>Tóm tắt</label>
+                            <textarea name="target_summary" value={formData.target_summary} onChange={handleChange} rows="3" required></textarea>
+                        </div>
+                        <div className="form-group">
+                            <label>Danh mục</label>
+                            <input name="category" value={formData.category} onChange={handleChange} required />
+                        </div>
+                        <div className="form-group">
+                            <label>Nguồn</label>
+                            <input name="source" value={formData.source} onChange={handleChange} />
+                        </div>
+                        <div className="form-group">
+                            <label>Dataset</label>
+                            <select name="Datasetdataset_ID" value={formData.Datasetdataset_ID} onChange={handleChange} required>
+                                <option value="">-- Chọn Dataset --</option>
+                                {datasets.map(d => <option key={d.dataset_ID} value={d.dataset_ID}>{d.name}</option>)}
+                            </select>
+                        </div>
+                        <button type="submit" className="btn-primary">Lưu</button>
+                        <button type="button" onClick={onCancel} className="btn-secondary">Hủy</button>
+                    </form>
+                </div>
+            );
+        }
+
+        function App() {
+            const [user, setUser] = useState(null);
+            const [loading, setLoading] = useState(true);
+
+            const checkLogin = useCallback(async () => {
+                try {
+                    const res = await api.me();
+                    if (res.ok) setUser(await res.json());
+                } catch (e) {
+                    console.error("Session check failed", e);
+                } finally {
+                    setLoading(false);
+                }
+            }, []);
+
+            useEffect(() => { checkLogin(); }, [checkLogin]);
+
+            const handleLogout = async () => {
+                await api.logout();
+                setUser(null);
+            };
+
+            if (loading) return <p>Đang tải...</p>;
+
+            return user ? <SampleManager user={user} onLogout={handleLogout} /> : <LoginPage onLoginSuccess={checkLogin} />;
+        }
+
+        ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+    </script>
+</body>
+</html>

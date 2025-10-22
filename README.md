@@ -1,3 +1,6 @@
+Chạy DDL SQL tạo bảng CSDL
+Chạy populate_db.py để nhập dữ liệu json vào CSDL
+
 # HTTM - ViT5 Text Summarization Server
 
 Server API để train/re-train model ViT5 và tóm tắt văn bản tiếng Việt với kiến trúc MVC.

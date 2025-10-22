@@ -7,7 +7,6 @@ import json
 import datetime
 import uuid
 
-# Add the parent directory to the path to import the app
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from app.models.database import SessionLocal, Admin, Dataset, Sample

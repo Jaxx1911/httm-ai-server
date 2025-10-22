@@ -11,4 +11,7 @@ scikit-learn
 rouge-score
 nltk
 numpy
-dotenv
+python-dotenv
+python-multipart
+requests
+itsdangerous
