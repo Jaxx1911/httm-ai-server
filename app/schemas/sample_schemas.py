@@ -16,11 +16,12 @@ class SampleUpdate(BaseModel):
     target_summary: Optional[str] = None
 
 class Sample(SampleBase):
-    sample_id: str
-    dataset_id: str = Field(alias="Datasetdataset_ID")  # Map từ tên cột DB
+    id: str
+    dataset_id: str
     created_at: Optional[date] = None
     language: Optional[str] = None
+    category: Optional[str] = None
+    source: Optional[str] = None
 
     class Config:
         from_attributes = True
-        populate_by_name = True  # Cho phép sử dụng cả alias và tên field gốc

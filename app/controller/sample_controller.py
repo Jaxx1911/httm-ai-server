@@ -29,7 +29,7 @@ class SampleBase(BaseModel):
     target_summary: str
     category: str
     source: Optional[str] = None
-    Datasetdataset_ID: str
+    dataset_id: str
 
 class SampleUpdate(BaseModel):
     title: Optional[str] = None
@@ -37,20 +37,20 @@ class SampleUpdate(BaseModel):
     target_summary: Optional[str] = None
     category: Optional[str] = None
     source: Optional[str] = None
-    Datasetdataset_ID: Optional[str] = None
+    dataset_id: Optional[str] = None
 
 class SampleOut(SampleBase):
-    sample_id: str
+    id: str
     language: str
     created_at: date
     class Config:
-        orm_mode = True
+        from_attributes = True
 
 class DatasetOut(BaseModel):
-    dataset_ID: str
+    id: str
     name: str
     class Config:
-        orm_mode = True
+        from_attributes = True
 
 # --- API Endpoints ---
 @router.get("", response_model=List[SampleOut])

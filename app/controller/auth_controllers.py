@@ -24,7 +24,7 @@ def login(req: Request, body: LoginRequest, db: Session = Depends(get_db)):
     if not admin or not admin_repository.verify_password(body.password, admin.password):
         raise HTTPException(status_code=401, detail="Sai username hoặc password")
     
-    req.session["user"] = {"username": admin.username, "admin_id": admin.admin_id}
+    req.session["user"] = {"username": admin.username, "admin_id": admin.id}
     return {"message": "Đăng nhập thành công", "user": req.session["user"]}
 
 @router.post("/logout")

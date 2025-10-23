@@ -4,12 +4,13 @@ from datetime import date
 import uuid
 from app.models.database import Sample, Dataset
 
+
 class SampleRepository:
     @staticmethod
     def list(db: Session, dataset_id: Optional[str] = None, skip: int = 0, limit: int = 100) -> List[Sample]:
         query = db.query(Sample)
         if dataset_id:
-            query = query.filter(Sample.Datasetdataset_ID == dataset_id)
+            query = query.filter(Sample.dataset_id == dataset_id)
         return query.offset(skip).limit(limit).all()
 
     @staticmethod
@@ -17,7 +18,7 @@ class SampleRepository:
         db: Session, dataset_id: str, skip: int = 0, limit: Optional[int] = None) -> List[Sample]:
         query = (
             db.query(Sample)
-            .filter(Sample.Datasetdataset_ID == dataset_id)
+            .filter(Sample.dataset_id == dataset_id)
             .order_by(Sample.created_at.desc())
         )
         if limit:
@@ -26,13 +27,13 @@ class SampleRepository:
     
     @staticmethod
     def get(db: Session, sample_id: str) -> Optional[Sample]:
-        return db.query(Sample).filter(Sample.sample_id == sample_id).first()
+        return db.query(Sample).filter(Sample.id == sample_id).first()
 
     @staticmethod
     def create(db: Session, data: Dict[str, Any]) -> Sample:
         """Tạo một sample mới."""
-        if "sample_id" not in data or not data["sample_id"]:
-            data["sample_id"] = f"smp_{str(uuid.uuid4())[:8]}"
+        if "id" not in data or not data["id"]:
+            data["id"] = f"smp_{str(uuid.uuid4())[:8]}"
         if "created_at" not in data:
             data["created_at"] = date.today()
         if "language" not in data:
@@ -69,5 +70,6 @@ class SampleRepository:
     def list_datasets(db: Session) -> List[Dataset]:
         """Lấy danh sách tất cả dataset."""
         return db.query(Dataset).all()
+
 
 sample_repository = SampleRepository()

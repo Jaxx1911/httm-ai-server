@@ -6,9 +6,9 @@ Main application entry point
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 from starlette.middleware.sessions import SessionMiddleware
-from app.routes import train_router, summarize_router
-from app.routes.auth_routes import router as auth_router
-from app.routes.sample_routes import router as sample_router
+from app.controller import train_router, summarize_router
+from app.controller.auth_controllers import router as auth_router
+from app.controller.sample_controller import router as sample_router
 from app.config.settings import settings
 import uvicorn
 import os

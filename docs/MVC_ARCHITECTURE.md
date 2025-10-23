@@ -255,7 +255,7 @@ def test_train_controller():
     session_id = TrainController.create_train_session(data, params)
     assert session_id > 0
 
-# Test routes riêng
+# Test controller riêng
 def test_summarize_endpoint():
     response = client.post("/summarize", json={"text": "test"})
     assert response.status_code == 200
@@ -268,7 +268,7 @@ def test_summarize_endpoint():
 
 ### 5. Code Reusability
 ```python
-# Controller có thể được dùng bởi nhiều routes
+# Controller có thể được dùng bởi nhiều controller
 from app.controllers import TrainController
 
 # Route 1

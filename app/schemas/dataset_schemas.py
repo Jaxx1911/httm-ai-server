@@ -15,8 +15,8 @@ class DatasetUpdate(BaseModel):
     status: Optional[str] = None
 
 class Dataset(DatasetBase):
-    dataset_ID: str
-    Adminadmin_id: str
+    id: str
+    created_by: str
     sample_count: int
     min_input_length: Optional[int]
     max_input_length: Optional[int]

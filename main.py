@@ -6,10 +6,10 @@ Main application entry point
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 from starlette.middleware.sessions import SessionMiddleware
-from app.routes import train_router, summarize_router
-from app.routes.auth_routes import router as auth_router
-from app.routes.sample_routes import router as sample_router
-from app.routes.dataset_routes import router as dataset_router
+from app.controller import model_router, summarize_router
+from app.controller.auth_controllers import router as auth_router
+from app.controller.sample_controller import router as sample_router
+from app.controller.dataset_controller import router as dataset_router
 from app.config.settings import settings
 import uvicorn
 import os
@@ -18,13 +18,13 @@ import os
 app = FastAPI(
     title="HTTM - ViT5 Text Summarization API & Sample Management",
     description="API for training ViT5 model, text summarization and sample management",
-    version="1.0.0"
+    version="2.0.0"
 )
 
 app.add_middleware(SessionMiddleware, secret_key=os.getenv("SESSION_SECRET", "a-very-secret-key"))
 
-# Đăng ký các API routes
-app.include_router(train_router)
+# Đăng ký các API controller
+app.include_router(model_router)
 app.include_router(summarize_router)
 app.include_router(auth_router)
 app.include_router(sample_router)

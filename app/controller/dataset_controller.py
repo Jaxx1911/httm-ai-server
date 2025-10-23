@@ -7,7 +7,7 @@ from ..repositories import dataset_repository, sample_repository
 from ..repositories.sample_repository import sample_repository  # Import thể hiện từ bên trong module
 from ..schemas.dataset_schemas import DatasetCreate, DatasetUpdate
 from ..schemas.sample_schemas import Sample
-from ..routes.auth_routes import get_current_user as get_current_admin
+from ..controller.auth_controllers import get_current_user as get_current_admin
 
 router = APIRouter()
 
@@ -38,9 +38,8 @@ def create_dataset(dataset: DatasetCreate, db: Session = Depends(get_db), admin:
         raise HTTPException(status_code=401, detail="Authentication required")
     
     dataset_dict = dataset.dict()
-    dataset_dict["dataset_ID"] = str(uuid.uuid4())
-    
-    new_dataset = dataset_repository.create_dataset(db=db, dataset_data=dataset_dict, admin_id=admin.admin_id)
+
+    new_dataset = dataset_repository.create_dataset(db=db, dataset_data=dataset_dict, admin_id=admin.id)
     return new_dataset
 
 @router.put("/api/datasets/{dataset_id}", summary="Update a dataset")
