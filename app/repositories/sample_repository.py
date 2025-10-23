@@ -7,15 +7,25 @@ from app.models.database import Sample, Dataset
 class SampleRepository:
     @staticmethod
     def list(db: Session, dataset_id: Optional[str] = None, skip: int = 0, limit: int = 100) -> List[Sample]:
-        """Lấy danh sách các sample, có thể lọc theo dataset."""
         query = db.query(Sample)
         if dataset_id:
             query = query.filter(Sample.Datasetdataset_ID == dataset_id)
         return query.offset(skip).limit(limit).all()
 
     @staticmethod
+    def get_samples_by_dataset(
+        db: Session, dataset_id: str, skip: int = 0, limit: Optional[int] = None) -> List[Sample]:
+        query = (
+            db.query(Sample)
+            .filter(Sample.Datasetdataset_ID == dataset_id)
+            .order_by(Sample.created_at.desc())
+        )
+        if limit:
+            query = query.limit(limit)
+        return query.offset(skip).all()
+    
+    @staticmethod
     def get(db: Session, sample_id: str) -> Optional[Sample]:
-        """Lấy một sample theo ID."""
         return db.query(Sample).filter(Sample.sample_id == sample_id).first()
 
     @staticmethod

@@ -9,26 +9,23 @@ from starlette.middleware.sessions import SessionMiddleware
 from app.routes import train_router, summarize_router
 from app.routes.auth_routes import router as auth_router
 from app.routes.sample_routes import router as sample_router
-from app.routes.dataset_routes import router as dataset_router
 from app.config.settings import settings
 import uvicorn
 import os
 
-# Khởi tạo FastAPI app
 app = FastAPI(
     title="HTTM - ViT5 Text Summarization API & Sample Management",
     description="API for training ViT5 model, text summarization and sample management",
     version="1.0.0"
 )
 
+
 app.add_middleware(SessionMiddleware, secret_key=os.getenv("SESSION_SECRET", "a-very-secret-key"))
 
-# Đăng ký các API routes
 app.include_router(train_router)
 app.include_router(summarize_router)
 app.include_router(auth_router)
 app.include_router(sample_router)
-app.include_router(dataset_router)
 
 app.mount("/manage", StaticFiles(directory="app/views", html=True), name="webapp")
 
@@ -49,7 +46,7 @@ def health_check():
 
 if __name__ == "__main__":
     uvicorn.run(
-        "main:app",
+        "app:app",
         host=settings.HOST,
         port=settings.PORT,
         reload=True
