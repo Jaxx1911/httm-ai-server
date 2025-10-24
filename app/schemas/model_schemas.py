@@ -1,17 +1,13 @@
-"""Schemas for Model Version API"""
 from pydantic import BaseModel, Field
-from typing import Optional, Dict, Any
+from typing import Optional, Dict, Any, List
 from datetime import datetime
 
 
 class TrainRequest(BaseModel):
-    """Request schema for training a model"""
-    version: str = Field(..., description="Version identifier for the model")
-    name: str = Field(..., description="Name of the model")
-    dataset_id: str = Field(..., description="Dataset ID to use for training")
-    is_retrain: bool = Field(default=False, description="Whether this is a retrain operation")
-    base_model_id: Optional[str] = Field(None, description="Base model ID for retraining")
-    parameters: Optional[Dict[str, Any]] = Field(None, description="Training parameters")
+    model_name: str
+    sample_ids: List[str]
+    is_retrain: bool = Field(default=False)
+    base_model_id: Optional[str] = Field(default=None)
 
 
 class ModelVersionResponse(BaseModel):

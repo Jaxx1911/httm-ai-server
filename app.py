@@ -2,11 +2,10 @@
 HTTM - ViT5 Text Summarization Server
 Main application entry point
 """
-
+import torch
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 from starlette.middleware.sessions import SessionMiddleware
-from app.controller import train_router, summarize_router
 from app.controller.auth_controllers import router as auth_router
 from app.controller.sample_controller import router as sample_router
 from app.config.settings import settings
@@ -22,8 +21,6 @@ app = FastAPI(
 
 app.add_middleware(SessionMiddleware, secret_key=os.getenv("SESSION_SECRET", "a-very-secret-key"))
 
-app.include_router(train_router)
-app.include_router(summarize_router)
 app.include_router(auth_router)
 app.include_router(sample_router)
 
@@ -45,9 +42,9 @@ def health_check():
     return {"status": "healthy"}
 
 if __name__ == "__main__":
-    uvicorn.run(
-        "app:app",
-        host=settings.HOST,
-        port=settings.PORT,
-        reload=True
-    )
+    import torch
+
+    print(torch.__version__)  # >= 2.6.0
+    print(torch.version.cuda)  # 12.1
+    print(torch.cuda.is_available())
+

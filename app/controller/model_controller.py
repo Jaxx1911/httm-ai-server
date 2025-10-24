@@ -4,6 +4,8 @@ from typing import List
 import logging
 
 from app.models.database import SessionLocal
+from app.repositories.model_repository import ModelRepository
+from app.repositories.sample_repository import SampleRepository
 from app.service.model_service import ModelService
 from app.schemas.model_schemas import (
     TrainRequest,
@@ -36,115 +38,22 @@ def train_model_background(db: Session, train_request: TrainRequest, created_by:
         db.close()
 
 
-@router.post("/train", response_model=dict)
-def train_model(
-    request: TrainRequest,
-    background_tasks: BackgroundTasks,
-    db: Session = Depends(get_db)
-):
-    """
-    Endpoint to train/re-train ViT5 model with provided dataset
-    Training runs in background and returns immediately with model version ID
-    """
-    # TODO: Get actual admin_id from authentication
-    created_by = "admin_001"  # Placeholder
+class ModelController:
+    def __init__(self, model_service: ModelService):
+        self.model_service = model_service
 
-    # Validate dataset exists
-    from app.repositories.dataset_repository import get_dataset
-    dataset = get_dataset(db, request.dataset_id)
-    if not dataset:
-        raise HTTPException(status_code=404, detail=f"Dataset {request.dataset_id} not found")
+    def get_all_models(self) -> List[ModelVersionResponse]:
+        return self.model_service.get_models()
 
-    # Check if version already exists
-    from app.repositories.model_repository import ModelRepository
-    repo = ModelRepository()
-    existing = repo.get_model_version_by_version(db, request.version)
-    if existing:
-        raise HTTPException(status_code=400, detail=f"Model version {request.version} already exists")
+    def train_model(self, request: TrainRequest) -> ModelVersionResponse:
+        res = self.model_service.train_model(request)
+        return ModelVersionResponse(**res)
 
-    # Start training in background
-    background_tasks.add_task(
-        train_model_background,
-        db=SessionLocal(),  # New session for background task
-        train_request=request,
-        created_by=created_by
-    )
-    
-    return {
-        "version": request.version,
-        "name": request.name,
-        "status": "training",
-        "message": "Model training started in background"
-    }
+    def get_model_status(self, model_id: str) -> ModelStatusResponse:
+        return self.model_service.get_model_status(model_id)
 
+    def activate_model(self, model_id: str) -> ModelStatusResponse:
+        return self.model_service.activate_model(model_id)
 
-@router.get("/status/{model_version_id}", response_model=ModelStatusResponse)
-def get_model_status(model_version_id: str, db: Session = Depends(get_db)):
-    """
-    Get training status and metrics of a model version by ID
-    """
-    # TODO: Get actual admin_id from authentication
-    created_by = "admin_001"
-
-    service = ModelService(db=db, created_by=created_by)
-    status = service.get_model_status(model_version_id)
-
-    if not status:
-        raise HTTPException(status_code=404, detail=f"Model version {model_version_id} not found")
-
-    return ModelStatusResponse(
-        **status,
-        message=f"Model is currently {status['status']}"
-    )
-
-
-@router.get("/list", response_model=List[ModelVersionResponse])
-def list_models(skip: int = 0, limit: int = 100, db: Session = Depends(get_db)):
-    """
-    Get list of all model versions
-    """
-    # TODO: Get actual admin_id from authentication
-    created_by = "admin_001"
-
-    service = ModelService(db=db, created_by=created_by)
-    models = service.get_all_models(skip=skip, limit=limit)
-
-    return models
-
-
-@router.get("/active", response_model=dict)
-def get_active_model(db: Session = Depends(get_db)):
-    """
-    Get information about the currently active model
-    """
-    # TODO: Get actual admin_id from authentication
-    created_by = "admin_001"
-
-    service = ModelService(db=db, created_by=created_by)
-    active_model = service.get_active_model_info()
-
-    if not active_model:
-        raise HTTPException(status_code=404, detail="No active model found")
-
-    return active_model
-
-
-@router.post("/activate")
-def activate_model(request: ActivateModelRequest, db: Session = Depends(get_db)):
-    """
-    Activate a specific model version
-    """
-    # TODO: Get actual admin_id from authentication
-    created_by = "admin_001"
-
-    service = ModelService(db=db, created_by=created_by)
-    success = service.activate_model_version(request.model_version_id)
-
-    if not success:
-        raise HTTPException(status_code=404, detail=f"Model version {request.model_version_id} not found")
-
-    return {
-        "message": f"Model version {request.model_version_id} activated successfully",
-        "model_version_id": request.model_version_id
-    }
+model_controller = ModelController(ModelService(ModelRepository(SessionLocal()), SampleRepository(SessionLocal())))
 

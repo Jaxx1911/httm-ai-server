@@ -23,11 +23,11 @@ DEFAULT_LANGUAGE = "vi"
 
 def create_default_admin(db: Session):
     """Creates a default admin user if one doesn't exist."""
-    admin = db.query(Admin).filter(Admin.admin_id == DEFAULT_ADMIN_ID).first()
+    admin = db.query(Admin).filter(Admin.id == DEFAULT_ADMIN_ID).first()
     if not admin:
         print(f"Creating default admin: {DEFAULT_ADMIN_ID}")
         admin = Admin(
-            admin_id=DEFAULT_ADMIN_ID,
+            id=DEFAULT_ADMIN_ID,
             username="admin",
             password="123456", 
             name="Nguyễn Văn A",
@@ -50,16 +50,16 @@ def get_or_create_dataset(db: Session, category_name: str, admin_id: str):
     if not dataset:
         print(f"  - Dataset '{dataset_name}' not found. Creating new one...")
         dataset = Dataset(
-            dataset_ID=f"ds_{str(uuid.uuid4())[:8]}",
+            id=f"ds_{str(uuid.uuid4())[:8]}",
             name=dataset_name,
             status="active",
             description=f"Dataset for category '{category_name}'",
-            Adminadmin_id=admin_id
+            created_by=admin_id
         )
         db.add(dataset)
         db.commit()
         db.refresh(dataset)
-        print(f"  ✓ New dataset created with ID: {dataset.dataset_ID}")
+        print(f"  ✓ New dataset created with ID: {dataset.id}")
     return dataset
 
 def populate_data():
@@ -85,11 +85,11 @@ def populate_data():
                         record = json.loads(line)
                         
                         # Get or create the corresponding dataset
-                        dataset = get_or_create_dataset(db, record['category'], admin.admin_id)
-                        
+                        dataset = get_or_create_dataset(db, record['category'], admin.id)
+
                         # Create the sample
                         sample = Sample(
-                            sample_id=f"smp_{str(uuid.uuid4())[:8]}",
+                            id=f"smp_{str(uuid.uuid4())[:8]}",
                             input_text=record['input'],
                             target_summary=record['output'],
                             category=record['category'],
@@ -97,7 +97,7 @@ def populate_data():
                             language=DEFAULT_LANGUAGE,
                             created_at=datetime.date.today(),
                             source=record.get('source'),
-                            Datasetdataset_ID=dataset.dataset_ID
+                            dataset_id=dataset.id
                         )
                         db.add(sample)
                         

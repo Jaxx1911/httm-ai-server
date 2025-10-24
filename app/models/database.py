@@ -21,7 +21,7 @@ class Admin(Base):
     phone = Column(String(255), nullable=False)
 
     datasets = relationship("Dataset", back_populates="admin")
-    model_versions = relationship("ModelVersion", back_populates="creator")
+    models = relationship("Model", back_populates="creator")
 
 # Bảng Dataset
 class Dataset(Base):
@@ -37,9 +37,8 @@ class Dataset(Base):
     samples = relationship("Sample", back_populates="dataset", cascade="all, delete-orphan")
     model_associations = relationship("ModelDataset", back_populates="dataset", cascade="all, delete-orphan")
 
-# Bảng ModelVersion (đổi tên từ Model)
-class ModelVersion(Base):
-    __tablename__ = "model_version"
+class Model(Base):
+    __tablename__ = "model"
     id = Column(String(255), primary_key=True)
     version = Column(String(255), nullable=False, unique=True)
     name = Column(String(255), nullable=False)
@@ -51,15 +50,14 @@ class ModelVersion(Base):
     status = Column(String(50), nullable=False, default="training")  # training, completed, failed, active
     is_active = Column(Boolean, default=False)
     training_duration = Column(Integer, nullable=True)  # seconds
-    parameters = Column(Text, nullable=True)  # JSON string
-    base_model_id = Column(String(255), ForeignKey("model_version.id"), nullable=True)
+    base_model_id = Column(String(255), ForeignKey("model.id"), nullable=True)
     created_by = Column(String(255), ForeignKey("admin.id"), nullable=False)
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
     completed_at = Column(DateTime, nullable=True)
 
-    creator = relationship("Admin", back_populates="model_versions")
-    base_model = relationship("ModelVersion", remote_side="ModelVersion.id", backref="derived_models")
-    dataset_associations = relationship("ModelDataset", back_populates="model_version", cascade="all, delete-orphan")
+    creator = relationship("Admin", back_populates="models")
+    base_model = relationship("Model", remote_side="Model.id", backref="derived_models")
+    dataset_associations = relationship("ModelDataset", back_populates="model", cascade="all, delete-orphan")
 
 # Bảng Sample
 class Sample(Base):
@@ -81,13 +79,13 @@ class ModelDataset(Base):
     __tablename__ = "model_dataset"
     id = Column(Integer, primary_key=True, autoincrement=True)
     dataset_id = Column(String(255), ForeignKey("dataset.id"), nullable=False)
-    model_version_id = Column(String(255), ForeignKey("model_version.id"), nullable=False)
+    model_id = Column(String(255), ForeignKey("model.id"), nullable=False)
     weight = Column(Float, nullable=True)
     notes = Column(Text, nullable=True)
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
 
     dataset = relationship("Dataset", back_populates="model_associations")
-    model_version = relationship("ModelVersion", back_populates="dataset_associations")
+    model = relationship("Model", back_populates="dataset_associations")
 
 # Tạo bảng nếu chưa tồn tại
 Base.metadata.create_all(bind=engine)

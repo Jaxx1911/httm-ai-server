@@ -1,25 +1,30 @@
-from typing import List, Optional, Dict, Any
+from typing import List, Optional, Dict, Any, Type, cast
 from sqlalchemy.orm import Session
 from datetime import date
 import uuid
+
+from app.models import SessionLocal
 from app.models.database import Sample, Dataset
 
 
 class SampleRepository:
+    def __init__(self, db: Session):
+        self.db = db
+
     @staticmethod
     def list(db: Session, dataset_id: Optional[str] = None, skip: int = 0, limit: int = 100) -> List[Sample]:
         query = db.query(Sample)
         if dataset_id:
+            query = query.filter(Sample.Datasetdataset_ID == dataset_id)
             query = query.filter(Sample.dataset_id == dataset_id)
-        return query.offset(skip).limit(limit).all()
 
     @staticmethod
     def get_samples_by_dataset(
         db: Session, dataset_id: str, skip: int = 0, limit: Optional[int] = None) -> List[Sample]:
         query = (
             db.query(Sample)
+            .filter(Sample.Datasetdataset_ID == dataset_id)
             .filter(Sample.dataset_id == dataset_id)
-            .order_by(Sample.created_at.desc())
         )
         if limit:
             query = query.limit(limit)
@@ -71,5 +76,9 @@ class SampleRepository:
         """Lấy danh sách tất cả dataset."""
         return db.query(Dataset).all()
 
+    def get_by_ids(self, sample_ids: List[str]) -> List[Sample]:
+        return cast(list[Sample], self.db.query(Sample).filter(Sample.id.in_(sample_ids)).all())
 
-sample_repository = SampleRepository()
+
+sample_repository = SampleRepository(SessionLocal)
+

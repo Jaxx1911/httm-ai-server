@@ -6,13 +6,14 @@ Main application entry point
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 from starlette.middleware.sessions import SessionMiddleware
-from app.controller import model_router, summarize_router
 from app.controller.auth_controllers import router as auth_router
 from app.controller.sample_controller import router as sample_router
 from app.controller.dataset_controller import router as dataset_router
 from app.config.settings import settings
 import uvicorn
 import os
+
+from app.router import summarize_router, model_router
 
 # Khởi tạo FastAPI app
 app = FastAPI(
