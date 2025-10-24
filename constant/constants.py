@@ -12,6 +12,7 @@ default_training_args = TrainingArguments(
     logging_steps=100,
     save_steps=500,
     save_total_limit=2,
-    fp16=True,  # nếu GPU hỗ trợ
+    fp16=True,
+    save_strategy="no",
 )
 

@@ -47,7 +47,18 @@ class ModelController:
 
     def train_model(self, request: TrainRequest) -> ModelVersionResponse:
         res = self.model_service.train_model(request)
-        return ModelVersionResponse(**res)
+        return ModelVersionResponse(
+            id=res["id"],
+            version=res["version"],
+            name=request.model_name,
+            accuracy=res["metrics"].accuracy,
+            precision=res["metrics"].precision,
+            recall=res["metrics"].recall,
+            f1_score=res["metrics"].f1_score,
+            model_path=res["model_path"],
+            status="completed",
+            is_active=False,
+        )
 
     def get_model_status(self, model_id: str) -> ModelStatusResponse:
         return self.model_service.get_model_status(model_id)

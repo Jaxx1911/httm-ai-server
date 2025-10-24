@@ -1,3 +1,4 @@
+from datetime import datetime
 import json
 import os
 import random
@@ -148,7 +149,7 @@ class ModelService:
 
 
         # Save model
-        model_save_path = os.path.join(self.model_base_path, f"model_{version}")
+        model_save_path = os.path.join(self.model_base_path, f"model_{train_request.model_name}_{version}")
         os.makedirs(model_save_path, exist_ok=True)
         trainer.save_model(model_save_path)
         tokenizer.save_pretrained(model_save_path)
@@ -170,7 +171,9 @@ class ModelService:
                 f1_score=metrics["f1_score"],
                 status="completed",
                 is_active=False,
-                base_model_id=train_request.base_version_id,
+                base_model_id=train_request.base_model_id,
+                created_at=datetime.now(),
+                created_by="admin1"
             )
         )
 
@@ -183,6 +186,7 @@ class ModelService:
         logger.info(f"Training completed for version: {version}")
 
         return {
+            "id": model_version.id,
             "version": version,
             "model_path": model_save_path,
             "metrics": ModelMetrics(**metrics),
