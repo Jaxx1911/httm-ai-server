@@ -2,9 +2,9 @@ from typing import List, Optional, Type, cast
 from sqlalchemy.orm import Session
 from sqlalchemy import desc, text
 import uuid
-from app.models.database import Model, ModelSample
+from app.models.database import Model, ModelSample, Sample
 from datetime import date, datetime
-from sqlalchemy import text, insert
+from sqlalchemy import text, insert, delete
 
 class ModelRepository:
     def __init__(self, db: Session):
@@ -17,10 +17,12 @@ class ModelRepository:
                 left join model m2 on m1.base_model_id = m2.id
         """)
         models = []
-        for row in self.db.execute(query).fetchall():
+        for row in self.db.execute(query).all():
             dt = datetime.strptime(str(row[5]), "%Y-%m-%d %H:%M:%S.%f")
             if row[10] is None:
                 base_model_name = "VietAI/vit5-base"
+            else:
+                base_model_name = row[10]
             models.append({
                 "id": row[0],
                 "name": row[1],
@@ -58,28 +60,48 @@ class ModelRepository:
         self.db.refresh(model)
         
         if is_select_all:
+            # lấy all sample_id not in sample_ids
+            query = self.db.query(Sample.id)
             if sample_ids:
-                excluded_ids = ", ".join([sid for sid in sample_ids])
-                query = text(f"""
-                    INSERT INTO model_sample (model_id, sample_id)
-                    SELECT :model_id, id
-                    FROM sample
-                    WHERE id NOT IN ({excluded_ids})
-                """)
-            else:
-                query = text("""
-                    INSERT INTO model_sample (model_id, sample_id)
-                    SELECT :model_id, sample_id
-                    FROM model_sample
-                """)
-            self.db.execute(query, {"model_id": model.id})
+                query = query.filter(Sample.id.notin_(sample_ids))
+            selected_sample_ids = [s[0] for s in query.all()]
         else:
+            selected_sample_ids = sample_ids
+
+        if selected_sample_ids:
+            associations = [
+                {"model_id": model.id, "sample_id": sid}
+                for sid in selected_sample_ids
+            ]
+            self.db.execute(insert(ModelSample), associations)
+        
+        self.db.commit()
+        return model
+    
+    def update(self, model: Model, sample_ids: List[str], is_select_all: bool) -> Model:
+        self.db.merge(model)
+        self.db.commit()
+        self.db.refresh(model)
+        
+        self.db.execute(
+            delete(ModelSample).where(ModelSample.model_id == model.id)
+        )
+        
+        if is_select_all:
+            # lấy all sample_id not in sample_ids
+            query = self.db.query(Sample.id)
             if sample_ids:
-                associations = [
-                    {"model_id": model.id, "sample_id": sid}
-                    for sid in sample_ids
-                ]
-                self.db.execute(insert(ModelSample), associations)
+                query = query.filter(Sample.id.notin_(sample_ids))
+            selected_sample_ids = [s[0] for s in query.all()]
+        else:
+            selected_sample_ids = sample_ids
+
+        if selected_sample_ids:
+            associations = [
+                {"model_id": model.id, "sample_id": sid}
+                for sid in selected_sample_ids
+            ]
+            self.db.execute(insert(ModelSample), associations)
         
         self.db.commit()
         return model

@@ -59,10 +59,7 @@ class ModelController:
             status="completed",
         )
 
-    def get_model_status(self, model_id: str) -> ModelStatusResponse:
-        return self.model_service.get_model_status(model_id)
-
-    def activate_model(self, model_id: str) -> ModelStatusResponse:
+    def activate_model(self, model_id: str) -> bool:
         return self.model_service.activate_model(model_id)
     
 model_controller = ModelController(ModelService(ModelRepository(SessionLocal()), SampleRepository(SessionLocal())))

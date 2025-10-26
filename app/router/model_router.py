@@ -13,7 +13,7 @@ def get_all_models():
 @router.post("/train")
 def train_model(req: Request, body: TrainRequest):
     model_controller.train_model(body)
-    return {"message": "Bắt đầu quá trình huấn luyện mô hình tóm tắt"}
+    return True
 
 @router.get("/status/{model_id}")
 def get_model_status(model_id: str):
@@ -21,4 +21,6 @@ def get_model_status(model_id: str):
 
 @router.post("/activate/{model_id}")
 def activate_model(model_id: str):
-    return {"message": f"Kích hoạt mô hình tóm tắt với ID {model_id}"}
+    model_controller.activate_model(model_id)
+    return True
+
