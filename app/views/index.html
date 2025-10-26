@@ -1,0 +1,555 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Quản lý Sample Dataset</title>
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; margin: 0; background-color: #f4f6f8; color: #333; }
+        #root { padding: 20px; max-width: 1400px; margin: auto; }
+        h1, h2 { color: #333; }
+        table { width: 100%; border-collapse: collapse; margin-top: 20px; background: white; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+        th, td { border: 1px solid #ddd; padding: 12px; text-align: left; vertical-align: middle; }
+        th { background-color: #f8f9fa; font-weight: 600; }
+        tr:nth-child(even) { background-color: #f2f2f2; }
+        button { cursor: pointer; padding: 8px 12px; border: none; border-radius: 4px; margin-right: 5px; font-size: 14px; }
+        .btn-primary { background-color: #007bff; color: white; }
+        .btn-danger { background-color: #dc3545; color: white; }
+        .btn-secondary { background-color: #6c757d; color: white; }
+        .btn-link { background: none; border: none; color: #007bff; padding: 0; text-decoration: underline; cursor: pointer; }
+        .form-container { background: white; padding: 20px; border-radius: 5px; margin-top: 20px; margin-bottom: 20px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+        .form-group { margin-bottom: 15px; }
+        .form-group label { display: block; margin-bottom: 5px; font-weight: 500; }
+        .form-group input, .form-group textarea, .form-group select { width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; }
+        .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+        .actions-bar { margin-top: 15px; }
+        .stats-group { font-size: 0.9em; color: #555; }
+        .stats-group div { margin-bottom: 2px; }
+        .text-preview { max-width: 300px; max-height: 60px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; cursor: pointer; }
+        .text-preview:hover { background-color: #f0f0f0; }
+        .editing-cell { background-color: #fff3cd; }
+        .editing-cell textarea { width: 100%; min-height: 100px; }
+        .pagination { display: flex; justify-content: center; align-items: center; margin-top: 20px; gap: 10px; }
+        .pagination button { min-width: 40px; }
+        .pagination button:disabled { opacity: 0.5; cursor: not-allowed; }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+    <script type="text/babel">
+        const { useState, useEffect, useCallback } = React;
+
+        // --- API Helper ---
+        const api = {
+            login: (username, password) => fetch('/auth/login', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({username, password}) }),
+            logout: () => fetch('/auth/logout', { method: 'POST' }),
+            me: () => fetch('/auth/me'),
+            
+            // Dataset APIs
+            getDatasets: () => fetch('/api/datasets'),
+            createDataset: (data) => fetch('/api/datasets', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(data) }),
+            updateDataset: (id, data) => fetch(`/api/datasets/${id}`, { method: 'PUT', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(data) }),
+            deleteDataset: (id) => fetch(`/api/datasets/${id}`, { method: 'DELETE' }),
+            
+            // Sample APIs
+            getSamples: (datasetId) => fetch(`/api/datasets/${datasetId}/samples`),
+            createSample: (data) => fetch('/api/samples', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(data) }),
+            updateSample: (id, data) => fetch(`/api/samples/${id}`, { method: 'PUT', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(data) }),
+            deleteSample: (id) => fetch(`/api/samples/${id}`, { method: 'DELETE' }),
+        };
+
+        // --- Components ---
+        function LoginPage({ onLoginSuccess }) {
+            const [username, setUsername] = useState('admin');
+            const [password, setPassword] = useState('admin');
+            const [error, setError] = useState('');
+
+            const handleSubmit = async (e) => {
+                e.preventDefault();
+                try {
+                    const res = await api.login(username, password);
+                    if (!res.ok) throw new Error((await res.json()).detail || 'Đăng nhập thất bại');
+                    onLoginSuccess(await res.json());
+                } catch (err) {
+                    setError(err.message);
+                }
+            };
+
+            return (
+                <div style={{maxWidth: 400, margin: '50px auto'}}>
+                    <div className="form-container">
+                        <h2>Đăng nhập</h2>
+                        <form onSubmit={handleSubmit}>
+                            <div className="form-group">
+                                <label>Username</label>
+                                <input value={username} onChange={e => setUsername(e.target.value)} />
+                            </div>
+                            <div className="form-group">
+                                <label>Password</label>
+                                <input type="password" value={password} onChange={e => setPassword(e.target.value)} />
+                            </div>
+                            {error && <p style={{color: 'red'}}>{error}</p>}
+                            <button type="submit" className="btn-primary">Đăng nhập</button>
+                        </form>
+                    </div>
+                </div>
+            );
+        }
+
+        function DatasetForm({ dataset, onSave, onCancel }) {
+            const [formData, setFormData] = useState(dataset || { name: '', description: '', status: 'new' });
+
+            const handleChange = (e) => {
+                const { name, value } = e.target;
+                setFormData(prev => ({ ...prev, [name]: value }));
+            };
+
+            const handleSubmit = (e) => {
+                e.preventDefault();
+                onSave(formData);
+            };
+
+            return (
+                <div className="form-container">
+                    <h2>{dataset ? 'Chỉnh sửa Dataset' : 'Tạo Dataset mới'}</h2>
+                    <form onSubmit={handleSubmit}>
+                        <div className="form-group">
+                            <label>Tên Dataset</label>
+                            <input name="name" value={formData.name} onChange={handleChange} required />
+                        </div>
+                        <div className="form-group">
+                            <label>Mô tả</label>
+                            <textarea name="description" value={formData.description} onChange={handleChange} rows="3"></textarea>
+                        </div>
+                        <button type="submit" className="btn-primary">Lưu</button>
+                        <button type="button" onClick={onCancel} className="btn-secondary">Hủy</button>
+                    </form>
+                </div>
+            );
+        }
+
+        function DatasetManager({ onSelectDataset, onLogout, user }) {
+            const [datasets, setDatasets] = useState([]);
+            const [editingDataset, setEditingDataset] = useState(null);
+            const [isCreating, setIsCreating] = useState(false);
+            const [selected, setSelected] = useState(new Set());
+
+            const fetchData = useCallback(async () => {
+                try {
+                    const res = await api.getDatasets();
+                    if (res.status === 401) { onLogout(); return; }
+                    setDatasets(await res.json());
+                } catch (error) { console.error("Lỗi tải datasets:", error); }
+            }, [onLogout]);
+
+            useEffect(() => { fetchData(); }, [fetchData]);
+
+            const handleSave = async (data) => {
+                if (editingDataset) {
+                    await api.updateDataset(editingDataset.dataset_ID, data);
+                } else {
+                    await api.createDataset(data);
+                }
+                setEditingDataset(null);
+                setIsCreating(false);
+                fetchData();
+            };
+
+            const handleDelete = async (id) => {
+                if (confirm('Bạn có chắc muốn xóa dataset này? Tất cả sample liên quan cũng sẽ bị xóa.')) {
+                    await api.deleteDataset(id);
+                    fetchData();
+                }
+            };
+            
+            const handleSelect = (id) => {
+                setSelected(prev => {
+                    const next = new Set(prev);
+                    if (next.has(id)) next.delete(id);
+                    else next.add(id);
+                    return next;
+                });
+            };
+
+            const handleSelectAll = (e) => {
+                if (e.target.checked) {
+                    setSelected(new Set(datasets.map(d => d.dataset_ID)));
+                } else {
+                    setSelected(new Set());
+                }
+            };
+
+            return (
+                <div>
+                    <div className="header">
+                        <h1>Quản lý Dataset</h1>
+                        <div>
+                            <span>Xin chào, <strong>{user.username}</strong></span>
+                            <button onClick={onLogout} className="btn-secondary" style={{marginLeft: 15}}>Đăng xuất</button>
+                        </div>
+                    </div>
+
+                    <button onClick={() => { setIsCreating(true); setEditingDataset(null); }} className="btn-primary">Thêm Dataset mới</button>
+
+                    {(isCreating || editingDataset) && (
+                        <DatasetForm dataset={editingDataset} onSave={handleSave} onCancel={() => { setIsCreating(false); setEditingDataset(null); }} />
+                    )}
+
+                    <table>
+                        <thead>
+                            <tr>
+                                <th><input type="checkbox" onChange={handleSelectAll} checked={selected.size === datasets.length && datasets.length > 0} /></th>
+                                <th>Tên Dataset</th>
+                                <th>Mô tả</th>
+                                <th>Trạng thái</th>
+                                <th>Thống kê (Input/Target)</th>
+                                <th>Thao tác</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {datasets.map(d => (
+                                <tr key={d.dataset_ID}>
+                                    <td><input type="checkbox" checked={selected.has(d.dataset_ID)} onChange={() => handleSelect(d.dataset_ID)} /></td>
+                                    <td><button className="btn-link" onClick={() => onSelectDataset(d)}>{d.name}</button></td>
+                                    <td>{d.description}</td>
+                                    <td>{d.status}</td>
+                                    <td>
+                                        <div className="stats-group">
+                                            <div><strong>Số mẫu:</strong> {d.sample_count}</div>
+                                            <div><strong>Min/Max/Avg (Input):</strong> {d.min_input_length || 0} / {d.max_input_length || 0} / {d.avg_input_length || 0}</div>
+                                            <div><strong>Min/Max/Avg (Target):</strong> {d.min_target_length || 0} / {d.max_target_length || 0} / {d.avg_target_length || 0}</div>
+                                        </div>
+                                    </td>
+                                    <td>
+                                        <button onClick={() => setEditingDataset(d)} className="btn-secondary">Sửa</button>
+                                        <button onClick={() => handleDelete(d.dataset_ID)} className="btn-danger">Xóa</button>
+                                    </td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                </div>
+            );
+        }
+
+        function SampleManager({ dataset, onBack }) {
+            const [samples, setSamples] = useState([]);
+            const [selected, setSelected] = useState(new Set());
+            const [editingId, setEditingId] = useState(null);
+            const [editingField, setEditingField] = useState(null);
+            const [editingValue, setEditingValue] = useState('');
+            const [isCreating, setIsCreating] = useState(false);
+            const [currentPage, setCurrentPage] = useState(1);
+            const [totalSamples, setTotalSamples] = useState(0);
+            const itemsPerPage = 20;
+            
+            const fetchData = useCallback(async () => {
+                if (!dataset || !dataset.dataset_ID) return;
+                try {
+                    const res = await api.getSamples(dataset.dataset_ID);
+                    const data = await res.json();
+                    setTotalSamples(data.length);
+                    setSamples(data);
+                } catch (error) {
+                    console.error("Lỗi tải samples:", error);
+                }
+            }, [dataset]);
+
+            useEffect(() => { fetchData(); }, [fetchData]);
+
+            const totalPages = Math.ceil(totalSamples / itemsPerPage);
+            const startIndex = (currentPage - 1) * itemsPerPage;
+            const endIndex = startIndex + itemsPerPage;
+            const currentSamples = samples.slice(startIndex, endIndex);
+
+            const handleSelectAll = (e) => {
+                if (e.target.checked) {
+                    setSelected(new Set(currentSamples.map(s => s.sample_id)));
+                } else {
+                    setSelected(new Set());
+                }
+            };
+
+            const handleSelect = (id) => {
+                setSelected(prev => {
+                    const next = new Set(prev);
+                    if (next.has(id)) next.delete(id);
+                    else next.add(id);
+                    return next;
+                });
+            };
+
+            const handleDeleteSelected = async () => {
+                if (selected.size === 0) {
+                    alert('Vui lòng chọn ít nhất một sample để xóa');
+                    return;
+                }
+                if (confirm(`Bạn có chắc muốn xóa ${selected.size} sample(s)?`)) {
+                    for (const id of selected) {
+                        await api.deleteSample(id);
+                    }
+                    setSelected(new Set());
+                    fetchData();
+                }
+            };
+
+            const handleEditCell = (sampleId, field, currentValue) => {
+                setEditingId(sampleId);
+                setEditingField(field);
+                setEditingValue(currentValue || '');
+            };
+
+            const handleSaveEdit = async () => {
+                if (!editingId || !editingField) return;
+                try {
+                    await api.updateSample(editingId, { [editingField]: editingValue });
+                    setEditingId(null);
+                    setEditingField(null);
+                    setEditingValue('');
+                    fetchData();
+                } catch (error) {
+                    alert('Lỗi khi lưu: ' + error.message);
+                }
+            };
+
+            const handleCancelEdit = () => {
+                setEditingId(null);
+                setEditingField(null);
+                setEditingValue('');
+            };
+
+            const handleCreateSample = async (data) => {
+                try {
+                    await api.createSample({ ...data, Datasetdataset_ID: dataset.dataset_ID });
+                    setIsCreating(false);
+                    fetchData();
+                } catch (error) {
+                    alert('Lỗi khi tạo sample: ' + error.message);
+                }
+            };
+
+            const renderCell = (sample, field) => {
+                const isEditing = editingId === sample.sample_id && editingField === field;
+                const value = sample[field];
+
+                if (isEditing) {
+                    return (
+                        <td className="editing-cell">
+                            <textarea
+                                value={editingValue}
+                                onChange={(e) => setEditingValue(e.target.value)}
+                                autoFocus
+                            />
+                            <div style={{marginTop: 5}}>
+                                <button onClick={handleSaveEdit} className="btn-primary">Lưu</button>
+                                <button onClick={handleCancelEdit} className="btn-secondary">Hủy</button>
+                            </div>
+                        </td>
+                    );
+                }
+
+                return (
+                    <td>
+                        <div
+                            className="text-preview"
+                            onClick={() => handleEditCell(sample.sample_id, field, value)}
+                            title="Click để chỉnh sửa"
+                        >
+                            {value || '(trống)'}
+                        </div>
+                    </td>
+                );
+            };
+
+            return (
+                <div>
+                    <div className="header">
+                        <h1>Samples trong Dataset: {dataset.name}</h1>
+                        <button onClick={onBack} className="btn-secondary">Quay lại danh sách Dataset</button>
+                    </div>
+
+                    <div className="actions-bar">
+                        <button onClick={() => setIsCreating(true)} className="btn-primary">Thêm Sample mới</button>
+                        <button onClick={handleDeleteSelected} className="btn-danger" disabled={selected.size === 0}>
+                            Xóa đã chọn ({selected.size})
+                        </button>
+                        <span style={{marginLeft: 20}}>Tổng số: {totalSamples} sample(s)</span>
+                    </div>
+
+                    {isCreating && (
+                        <SampleForm
+                            onSave={handleCreateSample}
+                            onCancel={() => setIsCreating(false)}
+                        />
+                    )}
+
+                    <table>
+                        <thead>
+                            <tr>
+                                <th style={{width: '50px'}}>
+                                    <input
+                                        type="checkbox"
+                                        onChange={handleSelectAll}
+                                        checked={selected.size === currentSamples.length && currentSamples.length > 0}
+                                    />
+                                </th>
+                                <th style={{width: '80px'}}>ID</th>
+                                <th style={{width: '200px'}}>Tiêu đề</th>
+                                <th>Input Text</th>
+                                <th>Target Summary</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {currentSamples.map(s => (
+                                <tr key={s.sample_id}>
+                                    <td>
+                                        <input
+                                            type="checkbox"
+                                            checked={selected.has(s.sample_id)}
+                                            onChange={() => handleSelect(s.sample_id)}
+                                        />
+                                    </td>
+                                    <td>{s.sample_id.substring(0, 8)}...</td>
+                                    {renderCell(s, 'title')}
+                                    {renderCell(s, 'input_text')}
+                                    {renderCell(s, 'target_summary')}
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+
+                    <div className="pagination">
+                        <button
+                            onClick={() => setCurrentPage(1)}
+                            disabled={currentPage === 1}
+                            className="btn-secondary"
+                        >
+                            ««
+                        </button>
+                        <button
+                            onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                            disabled={currentPage === 1}
+                            className="btn-secondary"
+                        >
+                            « Trước
+                        </button>
+                        <span>Trang {currentPage} / {totalPages || 1}</span>
+                        <button
+                            onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                            disabled={currentPage >= totalPages}
+                            className="btn-secondary"
+                        >
+                            Sau »
+                        </button>
+                        <button
+                            onClick={() => setCurrentPage(totalPages)}
+                            disabled={currentPage >= totalPages}
+                            className="btn-secondary"
+                        >
+                            »»
+                        </button>
+                    </div>
+                </div>
+            );
+        }
+
+        function SampleForm({ onSave, onCancel }) {
+            const [formData, setFormData] = useState({
+                title: '',
+                input_text: '',
+                target_summary: '',
+                category: '',
+                source: '',
+                language: 'vi'
+            });
+
+            const handleChange = (e) => {
+                const { name, value } = e.target;
+                setFormData(prev => ({ ...prev, [name]: value }));
+            };
+
+            const handleSubmit = (e) => {
+                e.preventDefault();
+                onSave(formData);
+            };
+
+            return (
+                <div className="form-container">
+                    <h2>Tạo Sample mới</h2>
+                    <form onSubmit={handleSubmit}>
+                        <div className="form-group">
+                            <label>Tiêu đề</label>
+                            <input name="title" value={formData.title} onChange={handleChange} required />
+                        </div>
+                        <div className="form-group">
+                            <label>Input Text</label>
+                            <textarea name="input_text" value={formData.input_text} onChange={handleChange} required rows="5"></textarea>
+                        </div>
+                        <div className="form-group">
+                            <label>Target Summary</label>
+                            <textarea name="target_summary" value={formData.target_summary} onChange={handleChange} required rows="3"></textarea>
+                        </div>
+                        <div className="form-group">
+                            <label>Category</label>
+                            <input name="category" value={formData.category} onChange={handleChange} required />
+                        </div>
+                        <div className="form-group">
+                            <label>Source</label>
+                            <input name="source" value={formData.source} onChange={handleChange} />
+                        </div>
+                        <div className="form-group">
+                            <label>Language</label>
+                            <input name="language" value={formData.language} onChange={handleChange} />
+                        </div>
+                        <button type="submit" className="btn-primary">Lưu</button>
+                        <button type="button" onClick={onCancel} className="btn-secondary">Hủy</button>
+                    </form>
+                </div>
+            );
+        }
+
+        function MainPage({ user, onLogout }) {
+            const [selectedDataset, setSelectedDataset] = useState(null);
+
+            if (selectedDataset) {
+                return <SampleManager dataset={selectedDataset} onBack={() => setSelectedDataset(null)} />;
+            }
+
+            return <DatasetManager user={user} onLogout={onLogout} onSelectDataset={setSelectedDataset} />;
+        }
+
+        function App() {
+            const [user, setUser] = useState(null);
+            const [loading, setLoading] = useState(true);
+
+            const checkLogin = useCallback(async () => {
+                setLoading(true);
+                try {
+                    const res = await api.me();
+                    if (res.ok) setUser(await res.json());
+                } catch (e) {
+                    console.error("Session check failed", e);
+                } finally {
+                    setLoading(false);
+                }
+            }, []);
+
+            useEffect(() => { checkLogin(); }, [checkLogin]);
+
+            const handleLogout = async () => {
+                await api.logout();
+                setUser(null);
+            };
+
+            if (loading) return <p>Đang tải...</p>;
+
+            return user ? <MainPage user={user} onLogout={handleLogout} /> : <LoginPage onLoginSuccess={checkLogin} />;
+        }
+
+        ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+    </script>
+</body>
+</html>
