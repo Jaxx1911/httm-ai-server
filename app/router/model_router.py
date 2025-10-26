@@ -12,8 +12,8 @@ def get_all_models():
 
 @router.post("/train")
 def train_model(req: Request, body: TrainRequest):
-    model_controller.train_model(body)
-    return True
+    data = model_controller.train_model(body)
+    return {"data": data}
 
 @router.get("/status/{model_id}")
 def get_model_status(model_id: str):
@@ -24,3 +24,7 @@ def activate_model(model_id: str):
     model_controller.activate_model(model_id)
     return True
 
+@router.post("/save")
+def save_model(model_data: dict):
+    model_controller.save_model(model_data)
+    return True

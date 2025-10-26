@@ -4,6 +4,7 @@ from datetime import datetime
 
 
 class TrainRequest(BaseModel):
+    id: Optional[str]
     model_name: str
     is_select_all: bool
     sample_ids: List[str]
@@ -12,18 +13,19 @@ class TrainRequest(BaseModel):
 
 
 class ModelVersionResponse(BaseModel):
-    id: str
-    version: str
-    name: str
+    id: Optional[str]
+    version: Optional[str]
+    name: Optional[str]
     accuracy: Optional[float]
     precision: Optional[float]
     recall: Optional[float]
     f1_score: Optional[float]
-    model_path: str
-    status: str
-
-    class Config:
-        from_attributes = True
+    model_path: Optional[str]
+    status: Optional[str]
+    base_model_id: Optional[str]
+    sample_ids: Optional[List[str]]
+    is_select_all: Optional[bool]
+    is_retrain: Optional[bool]
 
 
 class ModelStatusResponse(BaseModel):

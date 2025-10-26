@@ -10,8 +10,6 @@ from app.service.model_service import ModelService
 from app.schemas.model_schemas import (
     TrainRequest,
     ModelVersionResponse,
-    ModelStatusResponse,
-    ActivateModelRequest
 )
 
 router = APIRouter(prefix="/model", tags=["model"])
@@ -47,20 +45,13 @@ class ModelController:
 
     def train_model(self, request: TrainRequest) -> ModelVersionResponse:
         res = self.model_service.train_model(request)
-        return ModelVersionResponse(
-            id=res["id"],
-            version=res["version"],
-            name=request.model_name,
-            accuracy=res["metrics"].accuracy,
-            precision=res["metrics"].precision,
-            recall=res["metrics"].recall,
-            f1_score=res["metrics"].f1_score,
-            model_path=res["model_path"],
-            status="completed",
-        )
+        return res
 
     def activate_model(self, model_id: str) -> bool:
         return self.model_service.activate_model(model_id)
+
+    def save_model(self, model_data: dict) -> bool:
+        return self.model_service.save_model(model_data)
     
 model_controller = ModelController(ModelService(ModelRepository(SessionLocal()), SampleRepository(SessionLocal())))
 

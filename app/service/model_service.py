@@ -11,6 +11,7 @@ from rouge_score import rouge_scorer
 
 from app.models.database import Model
 from app.repositories.sample_repository import SampleRepository
+from app.schemas.model_schemas import ModelVersionResponse
 from constant.constants import default_training_args
 from app.repositories.model_repository import ModelRepository
 from app.schemas import TrainRequest, ModelMetrics
@@ -89,18 +90,27 @@ class ModelService:
         model_name = "VietAI/vit5-base"
 
         version = 1
+        base_model = None
+        if train_request.is_retrain:
+            base_model = self.repository.get_by_id(train_request.id)
+            if not base_model:
+                raise ValueError(f"Base model {train_request.id} not found for retraining.")
+    
+            version = base_model.version + 1
+            model_name = base_model.model_path
+            logger.info(f"Retraining model version: {train_request.id}, new version: {version}")
+
         # Load base model
-        if train_request.base_model_id is not None and train_request.base_model_id != "":
+        elif train_request.base_model_id is not None and train_request.base_model_id != "":
             base_model = self.repository.get_by_id(train_request.base_model_id)
             if not base_model:
-                raise ValueError(f"Base model version {train_request.base_model_id} not found for retraining.")
-            logger.info(f"Retraining from base model version: {train_request.base_model_id}")
+                raise ValueError(f"Base model {train_request.base_model_id} not found for training.")
+            logger.info(f"Training from base model: {train_request.base_model_id}")
             model_name = base_model.model_path
 
-            if train_request.is_retrain:
-                if base_model.name[10:].strip() == train_request.model_name:
-                    version = base_model.version + 1
-        logger.info(f"Starting training for version: {version}")
+        
+
+        logger.info(f"Starting traininG")
 
         # Load tokenizer và model model
         tokenizer = AutoTokenizer.from_pretrained(model_name)
@@ -153,48 +163,49 @@ class ModelService:
         logger.info("Computing metrics on evaluation dataset...")
         metrics = self.compute_metrics(model, tokenizer, tokenized_eval)
 
-        if not train_request.is_retrain:
-            model_version = self.repository.insert(
-                Model(
-                    version=version,
-                    name=f"ViT5 Model {train_request.model_name}",
-                    model_path=model_save_path,
-                    accuracy=metrics["accuracy"],
-                    precision=metrics["precision"],
-                    recall=metrics["recall"],
-                    f1_score=metrics["f1_score"],
-                    status="completed",
-                    is_active=False,
-                    base_model_id=train_request.base_model_id,
-                    created_at=datetime.now(),
-                    created_by="admin1"
-                ), train_request.sample_ids, is_select_all=train_request.is_select_all
-            )
-        else:
-            base_model = self.repository.get_by_id(train_request.base_model_id)
-            base_model.version = version
-            base_model.model_path = model_save_path
-            base_model.accuracy = metrics["accuracy"]
-            base_model.precision = metrics["precision"]
-            base_model.recall = metrics["recall"]
-            base_model.f1_score = metrics["f1_score"]
-            base_model.status = "completed"
-            base_model.created_at = datetime.now()
-
-            model_version = self.repository.update(
-                base_model, train_request.sample_ids, is_select_all=train_request.is_select_all
-            )
-
-
-        # set active nếu là model đầu tiên
-        all_models = self.repository.get_all()
-        if len(all_models) == 1:
-            self.repository.set_active(all_models[0])
-            logger.info(f"Model {version} set as active (first model)")
-
         logger.info(f"Training completed for version: {version}")
         # clear file dataset tạm
         os.remove(dataset_file_path)
+        if not train_request.is_retrain:
+            return ModelVersionResponse(
+                id=None,
+                version=str(version),
+                name=train_request.model_name,
+                accuracy=metrics["accuracy"],
+                precision=metrics["precision"],
+                recall=metrics["recall"],
+                f1_score=metrics["f1_score"],
+                model_path=model_save_path,
+                status="completed",
+                base_model_id=None,
+                sample_ids=train_request.sample_ids,
+                is_select_all=train_request.is_select_all,
+                is_retrain=False
+            )
+        else:
+            return ModelVersionResponse(
+                id=base_model.id,
+                version=str(version),
+                name=base_model.model_name,
+                accuracy=metrics["accuracy"],
+                precision=metrics["precision"],
+                recall=metrics["recall"],
+                f1_score=metrics["f1_score"],
+                model_path=model_save_path,
+                status="completed",
+                base_model_id=base_model.base_model_id,
+                sample_ids=train_request.sample_ids,
+                is_select_all=train_request.is_select_all,
+                is_retrain=True
+            )
+
+        # # set active nếu là model đầu tiên
+        # all_models = self.repository.get_all()
+        # if len(all_models) == 1:
+        #     self.repository.set_active(all_models[0])
+        #     logger.info(f"Model {version} set as active (first model)")
+
+        
 
         return {
             "id": model_version.id,
@@ -240,3 +251,36 @@ class ModelService:
 
         return dataset_path
 
+    def save_model(self, model_data: dict) -> bool:
+        if not model_data.get("is_retrain"):
+            model_version = self.repository.insert(
+                Model(
+                    version=model_data.get("version"),
+                    name=f"ViT5 Model {model_data.get('name')}",
+                    model_path=model_data.get("model_path"),
+                    accuracy=model_data.get("accuracy"),
+                    precision=model_data.get("precision"),
+                    recall=model_data.get("recall"),
+                    f1_score=model_data.get("f1_score"),
+                    status="completed",
+                    is_active=False,
+                    base_model_id=model_data.get("base_model_id"),
+                    created_at=datetime.now(),
+                    created_by="admin1"
+                ), model_data.get("sample_ids"), is_select_all=model_data.get("is_select_all")
+            )
+        else:
+            base_model = self.repository.get_by_id(model_data.get("id"))
+            base_model.version = model_data.get("version")
+            base_model.model_path = model_data.get("model_path")
+            base_model.accuracy = model_data.get("accuracy")
+            base_model.precision = model_data.get("precision")
+            base_model.recall = model_data.get("recall")
+            base_model.f1_score = model_data.get("f1_score")
+            base_model.status = "completed"
+            base_model.created_at = datetime.now()
+
+            model_version = self.repository.update(
+                base_model, model_data.get("sample_ids"), is_select_all=model_data.get("is_select_all")
+            )
+        return True
