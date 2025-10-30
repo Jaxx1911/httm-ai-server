@@ -15,4 +15,9 @@ python-dotenv
 python-multipart
 requests
 itsdangerous
+<<<<<<< HEAD
 pydantic-settings
+=======
+requests
+beautifulsoup4
+>>>>>>> d26a4cb (update crawl)

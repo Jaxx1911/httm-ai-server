@@ -59,6 +59,9 @@
             createSample: (data) => fetch('/api/samples', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(data) }),
             updateSample: (id, data) => fetch(`/api/samples/${id}`, { method: 'PUT', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(data) }),
             deleteSample: (id) => fetch(`/api/samples/${id}`, { method: 'DELETE' }),
+            
+            // Crawler API
+            crawlVnExpress: (url) => fetch('/api/crawler/vnexpress', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({url}) }),
         };
 
         // --- Components ---
@@ -99,6 +102,33 @@
             );
         }
 
+        function AdminHome({ user, onNavigate }) {
+            return (
+                <div>
+                    <div className="header">
+                        <h1>Admin Home</h1>
+                        <div>
+                            <span> <strong>{user.username}</strong></span>
+                            <button onClick={() => onNavigate('logout')} className="btn-secondary" style={{marginLeft: 15}}>Đăng xuất</button>
+                        </div>
+                    </div>
+                    <div style={{ textAlign: 'center', marginTop: '50px' }}>
+                        <div className="form-container" style={{ maxWidth: '600px', margin: 'auto', padding: '40px' }}>
+                            <h2></h2>
+                            <p></p>
+                            <button 
+                                onClick={() => onNavigate('datasets')} 
+                                className="btn-primary" 
+                                style={{fontSize: '18px', padding: '15px 30px', marginTop: '20px'}}
+                            >
+                                Manage Dataset
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            );
+        }
+
         function DatasetForm({ dataset, onSave, onCancel }) {
             const [formData, setFormData] = useState(dataset || { name: '', description: '', status: 'new' });
 
@@ -131,7 +161,7 @@
             );
         }
 
-        function DatasetManager({ onSelectDataset, onLogout, user }) {
+        function DatasetManager({ onSelectDataset, onNavigate, user }) {
             const [datasets, setDatasets] = useState([]);
             const [editingDataset, setEditingDataset] = useState(null);
             const [isCreating, setIsCreating] = useState(false);
@@ -140,10 +170,10 @@
             const fetchData = useCallback(async () => {
                 try {
                     const res = await api.getDatasets();
-                    if (res.status === 401) { onLogout(); return; }
+                    if (res.status === 401) { onNavigate('logout'); return; }
                     setDatasets(await res.json());
                 } catch (error) { console.error("Lỗi tải datasets:", error); }
-            }, [onLogout]);
+            }, [onNavigate]);
 
             useEffect(() => { fetchData(); }, [fetchData]);
 
@@ -188,7 +218,8 @@
                         <h1>Quản lý Dataset</h1>
                         <div>
                             <span>Xin chào, <strong>{user.username}</strong></span>
-                            <button onClick={onLogout} className="btn-secondary" style={{marginLeft: 15}}>Đăng xuất</button>
+                            <button onClick={() => onNavigate('home')} className="btn-secondary" style={{marginLeft: 15}}>Trang chủ</button>
+                            <button onClick={() => onNavigate('logout')} className="btn-secondary" style={{marginLeft: 15}}>Đăng xuất</button>
                         </div>
                     </div>
 
@@ -244,6 +275,7 @@
             const [isCreating, setIsCreating] = useState(false);
             const [currentPage, setCurrentPage] = useState(1);
             const [totalSamples, setTotalSamples] = useState(0);
+            const [crawledSample, setCrawledSample] = useState(null);
             const itemsPerPage = 20;
             
             const fetchData = useCallback(async () => {
@@ -252,6 +284,8 @@
                     const res = await api.getSamples(dataset.dataset_ID);
                     const data = await res.json();
                     setTotalSamples(data.length);
+                    // Sort samples by created_at date, newest first
+                    data.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
                     setSamples(data);
                 } catch (error) {
                     console.error("Lỗi tải samples:", error);
@@ -263,17 +297,21 @@
             const totalPages = Math.ceil(totalSamples / itemsPerPage);
             const startIndex = (currentPage - 1) * itemsPerPage;
             const endIndex = startIndex + itemsPerPage;
-            const currentSamples = samples.slice(startIndex, endIndex);
+            
+            // Combine crawled sample with existing samples for display
+            const displayedSamples = crawledSample ? [crawledSample, ...samples] : samples;
+            const currentSamples = displayedSamples.slice(startIndex, endIndex);
 
             const handleSelectAll = (e) => {
                 if (e.target.checked) {
-                    setSelected(new Set(currentSamples.map(s => s.sample_id)));
+                    setSelected(new Set(currentSamples.map(s => s.sample_id).filter(id => id))); // Filter out crawled sample without id
                 } else {
                     setSelected(new Set());
                 }
             };
 
             const handleSelect = (id) => {
+                if (!id) return; // Don't select the crawled sample preview
                 setSelected(prev => {
                     const next = new Set(prev);
                     if (next.has(id)) next.delete(id);
@@ -325,9 +363,30 @@
                 try {
                     await api.createSample({ ...data, Datasetdataset_ID: dataset.dataset_ID });
                     setIsCreating(false);
+                    setCrawledSample(null); // Clear crawled sample after saving
                     fetchData();
                 } catch (error) {
                     alert('Lỗi khi tạo sample: ' + error.message);
+                }
+            };
+
+            const handleCrawl = async () => {
+                const url = document.getElementById('vnexpress-url-input').value;
+                if (!url) {
+                    alert('Vui lòng nhập link bài báo VnExpress.');
+                    return;
+                }
+                try {
+                    const res = await api.crawlVnExpress(url);
+                    if (!res.ok) {
+                        const err = await res.json();
+                        throw new Error(err.detail || 'Lỗi không xác định');
+                    }
+                    const data = await res.json();
+                    // Add a temporary ID for display purposes
+                    setCrawledSample({ ...data, sample_id: `crawled-${Date.now()}`, isCrawled: true });
+                } catch (error) {
+                    alert('Lỗi khi crawl: ' + error.message);
                 }
             };
 
@@ -371,8 +430,18 @@
                         <button onClick={onBack} className="btn-secondary">Quay lại danh sách Dataset</button>
                     </div>
 
+                    <div className="form-container">
+                        <div className="form-group">
+                            <label>Thêm sample từ link báo VnExpress</label>
+                            <div style={{display: 'flex', gap: '10px'}}>
+                                <input id="vnexpress-url-input" type="text" placeholder="Dán link bài báo vào đây..." style={{flexGrow: 1}} />
+                                <button onClick={handleCrawl} className="btn-primary">Lấy mẫu bài báo</button>
+                            </div>
+                        </div>
+                    </div>
+
                     <div className="actions-bar">
-                        <button onClick={() => setIsCreating(true)} className="btn-primary">Thêm Sample mới</button>
+                        <button onClick={() => setIsCreating(true)} className="btn-primary">Thêm Sample mới (thủ công)</button>
                         <button onClick={handleDeleteSelected} className="btn-danger" disabled={selected.size === 0}>
                             Xóa đã chọn ({selected.size})
                         </button>
@@ -393,10 +462,10 @@
                                     <input
                                         type="checkbox"
                                         onChange={handleSelectAll}
-                                        checked={selected.size === currentSamples.length && currentSamples.length > 0}
+                                        checked={selected.size === currentSamples.filter(s => s.sample_id && !s.isCrawled).length && currentSamples.length > 0}
                                     />
                                 </th>
-                                <th style={{width: '80px'}}>ID</th>
+                                <th style={{width: '120px'}}>ID / Hành động</th>
                                 <th style={{width: '200px'}}>Tiêu đề</th>
                                 <th>Input Text</th>
                                 <th>Target Summary</th>
@@ -404,15 +473,22 @@
                         </thead>
                         <tbody>
                             {currentSamples.map(s => (
-                                <tr key={s.sample_id}>
+                                <tr key={s.sample_id} style={{fontWeight: s.isCrawled ? 'bold' : 'normal', background: s.isCrawled ? '#fffbe6' : ''}}>
                                     <td>
                                         <input
                                             type="checkbox"
                                             checked={selected.has(s.sample_id)}
                                             onChange={() => handleSelect(s.sample_id)}
+                                            disabled={s.isCrawled}
                                         />
                                     </td>
-                                    <td>{s.sample_id.substring(0, 8)}...</td>
+                                    <td>
+                                        {s.isCrawled ? (
+                                            <button onClick={() => handleCreateSample(s)} className="btn-primary">Lưu</button>
+                                        ) : (
+                                            s.sample_id.substring(0, 8) + '...'
+                                        )}
+                                    </td>
                                     {renderCell(s, 'title')}
                                     {renderCell(s, 'input_text')}
                                     {renderCell(s, 'target_summary')}
@@ -512,13 +588,28 @@
         }
 
         function MainPage({ user, onLogout }) {
+            const [currentView, setCurrentView] = useState('home'); // 'home', 'datasets', 'samples'
             const [selectedDataset, setSelectedDataset] = useState(null);
 
+            const handleNavigate = (view) => {
+                if (view === 'logout') {
+                    onLogout();
+                    return;
+                }
+                setCurrentView(view);
+            };
+
             if (selectedDataset) {
-                return <SampleManager dataset={selectedDataset} onBack={() => setSelectedDataset(null)} />;
+                return <SampleManager dataset={selectedDataset} onBack={() => { setSelectedDataset(null); setCurrentView('datasets'); }} />;
             }
 
-            return <DatasetManager user={user} onLogout={onLogout} onSelectDataset={setSelectedDataset} />;
+            switch (currentView) {
+                case 'datasets':
+                    return <DatasetManager user={user} onSelectDataset={setSelectedDataset} onNavigate={handleNavigate} />;
+                case 'home':
+                default:
+                    return <AdminHome user={user} onNavigate={handleNavigate} />;
+            }
         }
 
         function App() {

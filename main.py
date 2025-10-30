@@ -7,9 +7,17 @@ from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.middleware.sessions import SessionMiddleware
+<<<<<<< HEAD
 from app.controller.auth_controllers import router as auth_router
 from app.controller.sample_controller import router as sample_router
 from app.controller.dataset_controller import router as dataset_router
+=======
+from app.routes import train_router, summarize_router
+from app.routes.auth_routes import router as auth_router
+from app.routes.sample_routes import router as sample_router
+from app.routes.dataset_routes import router as dataset_router
+from app.routes.crawler_routes import router as crawler_router
+>>>>>>> d26a4cb (update crawl)
 from app.config.settings import settings
 import uvicorn
 import os
@@ -37,6 +45,7 @@ app.include_router(summarize_router)
 app.include_router(auth_router)
 app.include_router(sample_router)
 app.include_router(dataset_router)
+app.include_router(crawler_router)
 
 app.mount("/manage", StaticFiles(directory="app/views", html=True), name="webapp")
 
