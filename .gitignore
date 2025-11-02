@@ -65,3 +65,4 @@ htmlcov/
 .dmypy.json
 dmypy.json
 
+app/config/settings.py

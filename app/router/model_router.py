@@ -28,3 +28,4 @@ def activate_model(model_id: str):
 def save_model(model_data: dict):
     model_controller.save_model(model_data)
     return True
+

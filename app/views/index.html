@@ -279,13 +279,29 @@
             const itemsPerPage = 20;
             
             const fetchData = useCallback(async () => {
-                if (!dataset || !dataset.dataset_ID) return;
+                const datasetId = dataset?.dataset_ID || dataset?.id;
+                if (!dataset || !datasetId) {
+                    console.log("Dataset info:", dataset);
+                    return;
+                }
                 try {
-                    const res = await api.getSamples(dataset.dataset_ID);
+                    console.log("Fetching samples for dataset:", datasetId);
+                    const res = await api.getSamples(datasetId);
+                    if (!res.ok) {
+                        console.error("API error:", res.status, res.statusText);
+                        return;
+                    }
                     const data = await res.json();
+                    console.log("Samples received:", data);
                     setTotalSamples(data.length);
                     // Sort samples by created_at date, newest first
-                    data.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+                    if (Array.isArray(data)) {
+                        data.sort((a, b) => {
+                            const dateA = a.created_at ? new Date(a.created_at) : new Date(0);
+                            const dateB = b.created_at ? new Date(b.created_at) : new Date(0);
+                            return dateB - dateA;
+                        });
+                    }
                     setSamples(data);
                 } catch (error) {
                     console.error("Lỗi tải samples:", error);
@@ -304,7 +320,7 @@
 
             const handleSelectAll = (e) => {
                 if (e.target.checked) {
-                    setSelected(new Set(currentSamples.map(s => s.sample_id).filter(id => id))); // Filter out crawled sample without id
+                    setSelected(new Set(currentSamples.map(s => s.id).filter(id => id))); // Filter out crawled sample without id
                 } else {
                     setSelected(new Set());
                 }
@@ -335,6 +351,7 @@
             };
 
             const handleEditCell = (sampleId, field, currentValue) => {
+                if (!sampleId) return; // Don't edit if no valid ID
                 setEditingId(sampleId);
                 setEditingField(field);
                 setEditingValue(currentValue || '');
@@ -391,7 +408,7 @@
             };
 
             const renderCell = (sample, field) => {
-                const isEditing = editingId === sample.sample_id && editingField === field;
+                const isEditing = editingId === sample.id && editingField === field;
                 const value = sample[field];
 
                 if (isEditing) {
@@ -414,7 +431,7 @@
                     <td>
                         <div
                             className="text-preview"
-                            onClick={() => handleEditCell(sample.sample_id, field, value)}
+                            onClick={() => handleEditCell(sample.id, field, value)}
                             title="Click để chỉnh sửa"
                         >
                             {value || '(trống)'}
@@ -462,7 +479,7 @@
                                     <input
                                         type="checkbox"
                                         onChange={handleSelectAll}
-                                        checked={selected.size === currentSamples.filter(s => s.sample_id && !s.isCrawled).length && currentSamples.length > 0}
+                                        checked={selected.size === currentSamples.filter(s => s.id && !s.isCrawled).length && currentSamples.length > 0}
                                     />
                                 </th>
                                 <th style={{width: '120px'}}>ID / Hành động</th>
@@ -473,12 +490,12 @@
                         </thead>
                         <tbody>
                             {currentSamples.map(s => (
-                                <tr key={s.sample_id} style={{fontWeight: s.isCrawled ? 'bold' : 'normal', background: s.isCrawled ? '#fffbe6' : ''}}>
+                                <tr key={s.id || s.sample_id} style={{fontWeight: s.isCrawled ? 'bold' : 'normal', background: s.isCrawled ? '#fffbe6' : ''}}>
                                     <td>
                                         <input
                                             type="checkbox"
-                                            checked={selected.has(s.sample_id)}
-                                            onChange={() => handleSelect(s.sample_id)}
+                                            checked={selected.has(s.id)}
+                                            onChange={() => handleSelect(s.id)}
                                             disabled={s.isCrawled}
                                         />
                                     </td>
@@ -486,7 +503,7 @@
                                         {s.isCrawled ? (
                                             <button onClick={() => handleCreateSample(s)} className="btn-primary">Lưu</button>
                                         ) : (
-                                            s.sample_id.substring(0, 8) + '...'
+                                            s.id ? (s.id.substring(0, 8) + '...') : 'N/A'
                                         )}
                                     </td>
                                     {renderCell(s, 'title')}
