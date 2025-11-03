@@ -38,9 +38,7 @@ def create_dataset(dataset: DatasetCreate, db: Session = Depends(get_db), admin:
         raise HTTPException(status_code=401, detail="Authentication required")
     
     dataset_dict = dataset.dict()
-    dataset_dict["dataset_ID"] = str(uuid.uuid4())
-    new_dataset = dataset_repository.create_dataset(db=db, dataset_data=dataset_dict, admin_id=admin.id)
-    new_dataset = dataset_repository.create_dataset(db=db, dataset_data=dataset_dict, admin_id=admin.admin_id)
+    new_dataset = dataset_repository.create_dataset(db=db, dataset_data=dataset_dict, admin_id=admin['admin_id'])
     return new_dataset
 
 @router.put("/api/datasets/{dataset_id}", summary="Update a dataset")

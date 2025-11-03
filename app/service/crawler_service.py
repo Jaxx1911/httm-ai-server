@@ -4,39 +4,32 @@ from fastapi import HTTPException
 
 class VnExpressCrawler:
     def scrape(self, url: str):
-        """
-        Scrapes the title, description, and content from a VnExpress article URL.
-        """
         try:
             headers = {
                 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
             }
             response = requests.get(url, headers=headers, timeout=10)
-            response.raise_for_status()  # Raise an exception for bad status codes
+            response.raise_for_status()  
         except requests.RequestException as e:
             raise HTTPException(status_code=400, detail=f"Không thể truy cập URL: {e}")
 
         soup = BeautifulSoup(response.content, 'html.parser')
 
-        # Find title
         title_element = soup.select_one('h1.title-detail')
-        title = title_element.get_text(strip=True) if title_element else "Không tìm thấy tiêu đề"
+        title = title_element.get_text(strip=True) if title_element else ""
 
-        # Find description (summary)
         description_element = soup.select_one('p.description')
         target_summary = description_element.get_text(strip=True) if description_element else ""
 
-        # Find content paragraphs
         content_paragraphs = soup.select('article.fck_detail p.Normal')
         
-        # If no p.Normal found, try another common selector
         if not content_paragraphs:
             content_paragraphs = soup.select('article.fck_detail p')
 
         input_text = "\n".join([p.get_text(strip=True) for p in content_paragraphs if p.get_text(strip=True)])
 
         if not input_text:
-            raise HTTPException(status_code=404, detail="Không thể tìm thấy nội dung chính của bài báo. Vui lòng kiểm tra lại link hoặc cấu trúc trang đã thay đổi.")
+            raise HTTPException(status_code=404)
 
         return {
             "title": title,
@@ -47,4 +40,4 @@ class VnExpressCrawler:
             "language": "vi"
         }
 
-crawler_service = VnExpressCrawler()
+vnexpress_service = VnExpressCrawler()
